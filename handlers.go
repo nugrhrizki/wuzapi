@@ -204,7 +204,7 @@ func (s *server) Connect() http.HandlerFunc {
 			killchannel[userid] = make(chan bool)
 			go s.startClient(userid, jid, token, subscribedEvents)
 
-			if t.Immediate == false {
+			if !t.Immediate {
 				log.Warn().Msg("Waiting 10 seconds")
 				time.Sleep(10000 * time.Millisecond)
 
@@ -245,8 +245,8 @@ func (s *server) Disconnect() http.HandlerFunc {
 			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
 			return
 		}
-		if clientPointer[userid].IsConnected() == true {
-			if clientPointer[userid].IsLoggedIn() == true {
+		if clientPointer[userid].IsConnected() {
+			if clientPointer[userid].IsLoggedIn() {
 				log.Info().Str("jid", jid).Msg("Disconnection successfull")
 				killchannel[userid] <- true
 				_, err := s.db.Exec("UPDATE users SET events=? WHERE id=?", "", userid)
@@ -310,9 +310,10 @@ func (s *server) GetWebhook() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 		return
 	}
 }
@@ -332,14 +333,14 @@ func (s *server) SetWebhook() http.HandlerFunc {
 		var t webhookStruct
 		err := decoder.Decode(&t)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Could not set webhook: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Could not set webhook: %v", err))
 			return
 		}
 		var webhook = t.WebhookURL
 
 		_, err = s.db.Exec("UPDATE users SET webhook=? WHERE id=?", webhook, userid)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("%s", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("%s", err))
 			return
 		}
 
@@ -350,10 +351,10 @@ func (s *server) SetWebhook() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -369,7 +370,7 @@ func (s *server) GetQR() http.HandlerFunc {
 			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
 			return
 		} else {
-			if clientPointer[userid].IsConnected() == false {
+			if !clientPointer[userid].IsConnected() {
 				s.Respond(w, r, http.StatusInternalServerError, errors.New("Not connected"))
 				return
 			}
@@ -391,7 +392,7 @@ func (s *server) GetQR() http.HandlerFunc {
 				s.Respond(w, r, http.StatusInternalServerError, err)
 				return
 			}
-			if clientPointer[userid].IsLoggedIn() == true {
+			if clientPointer[userid].IsLoggedIn() {
 				s.Respond(w, r, http.StatusInternalServerError, errors.New("Already Loggedin"))
 				return
 			}
@@ -402,10 +403,10 @@ func (s *server) GetQR() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -421,7 +422,7 @@ func (s *server) Logout() http.HandlerFunc {
 			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
 			return
 		} else {
-			if clientPointer[userid].IsLoggedIn() == true && clientPointer[userid].IsConnected() == true {
+			if clientPointer[userid].IsLoggedIn() && clientPointer[userid].IsConnected() {
 				err := clientPointer[userid].Logout()
 				if err != nil {
 					log.Error().Str("jid", jid).Msg("Could not perform logout")
@@ -432,7 +433,7 @@ func (s *server) Logout() http.HandlerFunc {
 					killchannel[userid] <- true
 				}
 			} else {
-				if clientPointer[userid].IsConnected() == true {
+				if clientPointer[userid].IsConnected() {
 					log.Warn().Str("jid", jid).Msg("Ignoring logout as it was not logged in")
 					s.Respond(w, r, http.StatusInternalServerError, errors.New("Could not disconnect as it was not logged in"))
 					return
@@ -448,10 +449,10 @@ func (s *server) Logout() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -475,10 +476,10 @@ func (s *server) GetStatus() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -553,7 +554,7 @@ func (s *server) SendDocument() http.HandlerFunc {
 				filedata = dataURL.Data
 				uploaded, err = clientPointer[userid].Upload(context.Background(), filedata, whatsmeow.MediaDocument)
 				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Failed to upload file: %v", err)))
+					s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Failed to upload file: %v", err))
 					return
 				}
 			}
@@ -583,7 +584,7 @@ func (s *server) SendDocument() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -592,10 +593,10 @@ func (s *server) SendDocument() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -665,7 +666,7 @@ func (s *server) SendAudio() http.HandlerFunc {
 				filedata = dataURL.Data
 				uploaded, err = clientPointer[userid].Upload(context.Background(), filedata, whatsmeow.MediaAudio)
 				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Failed to upload file: %v", err)))
+					s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Failed to upload file: %v", err))
 					return
 				}
 			}
@@ -674,19 +675,19 @@ func (s *server) SendAudio() http.HandlerFunc {
 			return
 		}
 
-        ptt := true
-        mime := "audio/ogg; codecs=opus"
+		ptt := true
+		mime := "audio/ogg; codecs=opus"
 
 		msg := &waProto.Message{AudioMessage: &waProto.AudioMessage{
-			Url:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-            //Mimetype:      proto.String(http.DetectContentType(filedata)),
+			Url:        proto.String(uploaded.URL),
+			DirectPath: proto.String(uploaded.DirectPath),
+			MediaKey:   uploaded.MediaKey,
+			//Mimetype:      proto.String(http.DetectContentType(filedata)),
 			Mimetype:      &mime,
 			FileEncSha256: uploaded.FileEncSHA256,
 			FileSha256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(filedata))),
-            Ptt:           &ptt,
+			Ptt:           &ptt,
 		}}
 
 		if t.ContextInfo.StanzaId != nil {
@@ -699,7 +700,7 @@ func (s *server) SendAudio() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -708,10 +709,10 @@ func (s *server) SendAudio() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -781,7 +782,7 @@ func (s *server) SendImage() http.HandlerFunc {
 				filedata = dataURL.Data
 				uploaded, err = clientPointer[userid].Upload(context.Background(), filedata, whatsmeow.MediaImage)
 				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Failed to upload file: %v", err)))
+					s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Failed to upload file: %v", err))
 					return
 				}
 			}
@@ -893,7 +894,7 @@ func (s *server) SendSticker() http.HandlerFunc {
 				filedata = dataURL.Data
 				uploaded, err = clientPointer[userid].Upload(context.Background(), filedata, whatsmeow.MediaImage)
 				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Failed to upload file: %v", err)))
+					s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Failed to upload file: %v", err))
 					return
 				}
 			}
@@ -932,10 +933,10 @@ func (s *server) SendSticker() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -1006,7 +1007,7 @@ func (s *server) SendVideo() http.HandlerFunc {
 				filedata = dataURL.Data
 				uploaded, err = clientPointer[userid].Upload(context.Background(), filedata, whatsmeow.MediaVideo)
 				if err != nil {
-					s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Failed to upload file: %v", err)))
+					s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Failed to upload file: %v", err))
 					return
 				}
 			}
@@ -1037,7 +1038,7 @@ func (s *server) SendVideo() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -1125,7 +1126,7 @@ func (s *server) SendContact() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -1134,10 +1135,10 @@ func (s *server) SendContact() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -1215,7 +1216,7 @@ func (s *server) SendLocation() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -1224,10 +1225,10 @@ func (s *server) SendLocation() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -1235,15 +1236,15 @@ func (s *server) SendLocation() http.HandlerFunc {
 
 func (s *server) SendButtons() http.HandlerFunc {
 
-    type buttonStruct struct {
-        ButtonId   string
-        ButtonText string
-    }
+	type buttonStruct struct {
+		ButtonId   string
+		ButtonText string
+	}
 	type textStruct struct {
-        Phone   string
-        Title   string
-        Buttons []buttonStruct
-        Id      string
+		Phone   string
+		Title   string
+		Buttons []buttonStruct
+		Id      string
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -1277,14 +1278,14 @@ func (s *server) SendButtons() http.HandlerFunc {
 			return
 		}
 
-        if len(t.Buttons) < 1 {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing Buttons in Payload"))
-            return
-        }
-        if len(t.Buttons) > 3 {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("buttons cant more than 3"))
-            return
-        }
+		if len(t.Buttons) < 1 {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing Buttons in Payload"))
+			return
+		}
+		if len(t.Buttons) > 3 {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("buttons cant more than 3"))
+			return
+		}
 
 		recipient, ok := parseJID(t.Phone)
 		if !ok {
@@ -1298,32 +1299,32 @@ func (s *server) SendButtons() http.HandlerFunc {
 			msgid = t.Id
 		}
 
-        var buttons []*waProto.ButtonsMessage_Button
+		var buttons []*waProto.ButtonsMessage_Button
 
-        for _, item := range t.Buttons {
-            buttons = append(buttons, &waProto.ButtonsMessage_Button{
-                ButtonId:       proto.String(item.ButtonId),
-                ButtonText:     &waProto.ButtonsMessage_Button_ButtonText{DisplayText: proto.String(item.ButtonText)},
-                Type:           waProto.ButtonsMessage_Button_RESPONSE.Enum(),
-                NativeFlowInfo: &waProto.ButtonsMessage_Button_NativeFlowInfo{},
-            })
-        }
+		for _, item := range t.Buttons {
+			buttons = append(buttons, &waProto.ButtonsMessage_Button{
+				ButtonId:       proto.String(item.ButtonId),
+				ButtonText:     &waProto.ButtonsMessage_Button_ButtonText{DisplayText: proto.String(item.ButtonText)},
+				Type:           waProto.ButtonsMessage_Button_RESPONSE.Enum(),
+				NativeFlowInfo: &waProto.ButtonsMessage_Button_NativeFlowInfo{},
+			})
+		}
 
-        msg2 := &waProto.ButtonsMessage{
-            ContentText: proto.String(t.Title),
-            HeaderType:  waProto.ButtonsMessage_EMPTY.Enum(),
-            Buttons:     buttons,
-        }
+		msg2 := &waProto.ButtonsMessage{
+			ContentText: proto.String(t.Title),
+			HeaderType:  waProto.ButtonsMessage_EMPTY.Enum(),
+			Buttons:     buttons,
+		}
 
-        resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, &waProto.Message{ViewOnceMessage: &waProto.FutureProofMessage{
-            Message: &waProto.Message{
-                ButtonsMessage: msg2,
-            },
-        }})
-        if err != nil {
-            s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
-            return
-        }
+		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, &waProto.Message{ViewOnceMessage: &waProto.FutureProofMessage{
+			Message: &waProto.Message{
+				ButtonsMessage: msg2,
+			},
+		}})
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
+			return
+		}
 
 		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message sent")
 		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
@@ -1341,141 +1342,141 @@ func (s *server) SendButtons() http.HandlerFunc {
 // https://github.com/tulir/whatsmeow/issues/305
 func (s *server) SendList() http.HandlerFunc {
 
-    type rowsStruct struct {
-        RowId       string
-        Title       string
-        Description string
-    }
+	type rowsStruct struct {
+		RowId       string
+		Title       string
+		Description string
+	}
 
-    type sectionsStruct struct {
-        Title string
-        Rows  []rowsStruct
-    }
+	type sectionsStruct struct {
+		Title string
+		Rows  []rowsStruct
+	}
 
-    type listStruct struct {
-        Phone       string
-        Title       string
-        Description string
-        ButtonText  string
-        FooterText  string
-        Sections    []sectionsStruct
-        Id          string
-    }
+	type listStruct struct {
+		Phone       string
+		Title       string
+		Description string
+		ButtonText  string
+		FooterText  string
+		Sections    []sectionsStruct
+		Id          string
+	}
 
-    return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-        txtid := r.Context().Value("userinfo").(Values).Get("Id")
-        userid, _ := strconv.Atoi(txtid)
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
 
-        if clientPointer[userid] == nil {
-            s.Respond(w, r, http.StatusInternalServerError, errors.New("no session"))
-            return
-        }
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("no session"))
+			return
+		}
 
-        msgid := ""
-        var resp whatsmeow.SendResponse
+		msgid := ""
+		var resp whatsmeow.SendResponse
 
-        decoder := json.NewDecoder(r.Body)
-        var t listStruct
-        err := decoder.Decode(&t)
-        marshal, _ := json.Marshal(t)
-        fmt.Println(string(marshal))
-        if err != nil {
-            fmt.Println(err)
-            s.Respond(w, r, http.StatusBadRequest, errors.New("could not decode Payload"))
-            return
-        }
+		decoder := json.NewDecoder(r.Body)
+		var t listStruct
+		err := decoder.Decode(&t)
+		marshal, _ := json.Marshal(t)
+		fmt.Println(string(marshal))
+		if err != nil {
+			fmt.Println(err)
+			s.Respond(w, r, http.StatusBadRequest, errors.New("could not decode Payload"))
+			return
+		}
 
-        if t.Phone == "" {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing Phone in Payload"))
-            return
-        }
+		if t.Phone == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing Phone in Payload"))
+			return
+		}
 
-        if t.Title == "" {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing Title in Payload"))
-            return
-        }
+		if t.Title == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing Title in Payload"))
+			return
+		}
 
-        if t.Description == "" {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing Description in Payload"))
-            return
-        }
+		if t.Description == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing Description in Payload"))
+			return
+		}
 
-        if t.ButtonText == "" {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing ButtonText in Payload"))
-            return
-        }
+		if t.ButtonText == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing ButtonText in Payload"))
+			return
+		}
 
-        if len(t.Sections) < 1 {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("missing Sections in Payload"))
-            return
-        }
-        recipient, ok := parseJID(t.Phone)
-        if !ok {
-            s.Respond(w, r, http.StatusBadRequest, errors.New("could not parse Phone"))
-            return
-        }
+		if len(t.Sections) < 1 {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("missing Sections in Payload"))
+			return
+		}
+		recipient, ok := parseJID(t.Phone)
+		if !ok {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("could not parse Phone"))
+			return
+		}
 
-        if t.Id == "" {
-            msgid = whatsmeow.GenerateMessageID()
-        } else {
-            msgid = t.Id
-        }
+		if t.Id == "" {
+			msgid = whatsmeow.GenerateMessageID()
+		} else {
+			msgid = t.Id
+		}
 
-        var sections []*waProto.ListMessage_Section
+		var sections []*waProto.ListMessage_Section
 
-        for _, item := range t.Sections {
-            var rows []*waProto.ListMessage_Row
-            id := 1
-            for _, row := range item.Rows {
-                var idtext string
-                if row.RowId == "" {
-                    idtext = strconv.Itoa(id)
-                } else {
-                    idtext = row.RowId
-                }
-                rows = append(rows, &waProto.ListMessage_Row{
-                    RowId:       proto.String(idtext),
-                    Title:       proto.String(row.Title),
-                    Description: proto.String(row.Description),
-                })
-            }
+		for _, item := range t.Sections {
+			var rows []*waProto.ListMessage_Row
+			id := 1
+			for _, row := range item.Rows {
+				var idtext string
+				if row.RowId == "" {
+					idtext = strconv.Itoa(id)
+				} else {
+					idtext = row.RowId
+				}
+				rows = append(rows, &waProto.ListMessage_Row{
+					RowId:       proto.String(idtext),
+					Title:       proto.String(row.Title),
+					Description: proto.String(row.Description),
+				})
+			}
 
-            sections = append(sections, &waProto.ListMessage_Section{
-                Title: proto.String(item.Title),
-                Rows:  rows,
-            })
-        }
-        msg1 := &waProto.ListMessage{
-            Title:       proto.String(t.Title),
-            Description: proto.String(t.Description),
-            ButtonText:  proto.String(t.ButtonText),
-            ListType:    waProto.ListMessage_SINGLE_SELECT.Enum(),
-            Sections:    sections,
-            FooterText:  proto.String(t.FooterText),
-        }
+			sections = append(sections, &waProto.ListMessage_Section{
+				Title: proto.String(item.Title),
+				Rows:  rows,
+			})
+		}
+		msg1 := &waProto.ListMessage{
+			Title:       proto.String(t.Title),
+			Description: proto.String(t.Description),
+			ButtonText:  proto.String(t.ButtonText),
+			ListType:    waProto.ListMessage_SINGLE_SELECT.Enum(),
+			Sections:    sections,
+			FooterText:  proto.String(t.FooterText),
+		}
 
-        resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, &waProto.Message{
-            ViewOnceMessage: &waProto.FutureProofMessage{
-                Message: &waProto.Message{
-                    ListMessage: msg1,
-                },
-            }})
-        if err != nil {
-            s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
-            return
-        }
+		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, &waProto.Message{
+			ViewOnceMessage: &waProto.FutureProofMessage{
+				Message: &waProto.Message{
+					ListMessage: msg1,
+				},
+			}})
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
+			return
+		}
 
-        log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message sent")
-        response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
-        responseJson, err := json.Marshal(response)
-        if err != nil {
-            s.Respond(w, r, http.StatusInternalServerError, err)
-        } else {
-            s.Respond(w, r, http.StatusOK, string(responseJson))
-        }
-        return
-    }
+		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message sent")
+		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
+		responseJson, err := json.Marshal(response)
+		if err != nil {
+			s.Respond(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
+	}
 }
 
 // Sends a regular text message
@@ -1550,7 +1551,7 @@ func (s *server) SendMessage() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -1559,173 +1560,13 @@ func (s *server) SendMessage() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
-/*
-// Sends a Template message
-func (s *server) SendTemplate() http.HandlerFunc {
-
-	type buttonStruct struct {
-		DisplayText string
-		Id          string
-		Url         string
-		PhoneNumber string
-		Type        string
-	}
-
-	type templateStruct struct {
-		Phone   string
-		Content string
-		Footer  string
-		Id      string
-		Buttons []buttonStruct
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		txtid := r.Context().Value("userinfo").(Values).Get("Id")
-		userid, _ := strconv.Atoi(txtid)
-
-		if clientPointer[userid] == nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
-			return
-		}
-
-		msgid := ""
-		var resp whatsmeow.SendResponse
-//var ts time.Time
-
-		decoder := json.NewDecoder(r.Body)
-		var t templateStruct
-		err := decoder.Decode(&t)
-		if err != nil {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
-			return
-		}
-
-		if t.Phone == "" {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Phone in Payload"))
-			return
-		}
-
-		if t.Content == "" {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Content in Payload"))
-			return
-		}
-
-		if t.Footer == "" {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Footer in Payload"))
-			return
-		}
-
-		if len(t.Buttons) < 1 {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Buttons in Payload"))
-			return
-		}
-
-		recipient, ok := parseJID(t.Phone)
-		if !ok {
-			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not parse Phone"))
-			return
-		}
-
-		if t.Id == "" {
-			msgid = whatsmeow.GenerateMessageID()
-		} else {
-			msgid = t.Id
-		}
-
-		var buttons []*waProto.HydratedTemplateButton
-
-		id := 1
-		for _, item := range t.Buttons {
-			switch item.Type {
-			case "quickreply":
-				var idtext string
-				text := item.DisplayText
-				if item.Id == "" {
-					idtext = strconv.Itoa(id)
-				} else {
-					idtext = item.Id
-				}
-				buttons = append(buttons, &waProto.HydratedTemplateButton{
-					HydratedButton: &waProto.HydratedTemplateButton_QuickReplyButton{
-						QuickReplyButton: &waProto.HydratedQuickReplyButton{
-							DisplayText: &text,
-							Id:          proto.String(idtext),
-						},
-					},
-				})
-			case "url":
-				text := item.DisplayText
-				url := item.Url
-				buttons = append(buttons, &waProto.HydratedTemplateButton{
-					HydratedButton: &waProto.HydratedTemplateButton_UrlButton{
-						UrlButton: &waProto.HydratedURLButton{
-							DisplayText: &text,
-							Url:         &url,
-						},
-					},
-				})
-			case "call":
-				text := item.DisplayText
-				phonenumber := item.PhoneNumber
-				buttons = append(buttons, &waProto.HydratedTemplateButton{
-					HydratedButton: &waProto.HydratedTemplateButton_CallButton{
-						CallButton: &waProto.HydratedCallButton{
-							DisplayText: &text,
-							PhoneNumber: &phonenumber,
-						},
-					},
-				})
-			default:
-				text := item.DisplayText
-				buttons = append(buttons, &waProto.HydratedTemplateButton{
-					HydratedButton: &waProto.HydratedTemplateButton_QuickReplyButton{
-						QuickReplyButton: &waProto.HydratedQuickReplyButton{
-							DisplayText: &text,
-							Id:          proto.String(string(id)),
-						},
-					},
-				})
-			}
-			id++
-		}
-
-		msg := &waProto.Message{TemplateMessage: &waProto.TemplateMessage{
-			HydratedTemplate: &waProto.HydratedFourRowTemplate{
-				HydratedContentText: proto.String(t.Content),
-				HydratedFooterText:  proto.String(t.Footer),
-				HydratedButtons:     buttons,
-				TemplateId:          proto.String("1"),
-			},
-		},
-		}
-
-		resp, err = clientPointer[userid].SendMessage(context.Background(),recipient, msg)
-		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
-			return
-		}
-
-		log.Info().Str("timestamp", fmt.Sprintf("%d", resp.Timestamp)).Str("id", msgid).Msg("Message sent")
-		response := map[string]interface{}{"Details": "Sent", "Timestamp": resp.Timestamp, "Id": msgid}
-		responseJson, err := json.Marshal(response)
-		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
-		}
-		return
-	}
-}
-*/
 // checks if users/phones are on Whatsapp
 func (s *server) CheckUser() http.HandlerFunc {
 
@@ -1942,7 +1783,6 @@ func (s *server) GetContacts() http.HandlerFunc {
 			return
 		}
 
-		result := map[types.JID]types.ContactInfo{}
 		result, err := clientPointer[userid].Store.Contacts.GetAllContacts()
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
@@ -1952,11 +1792,10 @@ func (s *server) GetContacts() http.HandlerFunc {
 		responseJson, err := json.Marshal(result)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2013,10 +1852,10 @@ func (s *server) ChatPresence() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2052,7 +1891,7 @@ func (s *server) DownloadImage() http.HandlerFunc {
 		if os.IsNotExist(err) {
 			errDir := os.MkdirAll(userDirectory, 0751)
 			if errDir != nil {
-				s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Could not create user directory (%s)", userDirectory)))
+				s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Could not create user directory (%s)", userDirectory))
 				return
 			}
 		}
@@ -2132,7 +1971,7 @@ func (s *server) DownloadDocument() http.HandlerFunc {
 		if os.IsNotExist(err) {
 			errDir := os.MkdirAll(userDirectory, 0751)
 			if errDir != nil {
-				s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Could not create user directory (%s)", userDirectory)))
+				s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Could not create user directory (%s)", userDirectory))
 				return
 			}
 		}
@@ -2173,10 +2012,10 @@ func (s *server) DownloadDocument() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2212,7 +2051,7 @@ func (s *server) DownloadVideo() http.HandlerFunc {
 		if os.IsNotExist(err) {
 			errDir := os.MkdirAll(userDirectory, 0751)
 			if errDir != nil {
-				s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Could not create user directory (%s)", userDirectory)))
+				s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Could not create user directory (%s)", userDirectory))
 				return
 			}
 		}
@@ -2253,10 +2092,10 @@ func (s *server) DownloadVideo() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2292,7 +2131,7 @@ func (s *server) DownloadAudio() http.HandlerFunc {
 		if os.IsNotExist(err) {
 			errDir := os.MkdirAll(userDirectory, 0751)
 			if errDir != nil {
-				s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Could not create user directory (%s)", userDirectory)))
+				s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Could not create user directory (%s)", userDirectory))
 				return
 			}
 		}
@@ -2333,10 +2172,10 @@ func (s *server) DownloadAudio() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2419,7 +2258,7 @@ func (s *server) React() http.HandlerFunc {
 
 		resp, err = clientPointer[userid].SendMessage(context.Background(), recipient, msg)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("Error sending message: %v", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("Error sending message: %v", err))
 			return
 		}
 
@@ -2428,11 +2267,10 @@ func (s *server) React() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2483,10 +2321,10 @@ func (s *server) MarkRead() http.HandlerFunc {
 		responseJson, err := json.Marshal(response)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
-		return
+
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2524,11 +2362,10 @@ func (s *server) ListGroups() http.HandlerFunc {
 		responseJson, err := json.Marshal(gc)
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2576,11 +2413,10 @@ func (s *server) GetGroupInfo() http.HandlerFunc {
 
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2630,11 +2466,10 @@ func (s *server) GetGroupInviteLink() http.HandlerFunc {
 
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2704,11 +2539,10 @@ func (s *server) SetGroupPhoto() http.HandlerFunc {
 
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
 	}
 }
 
@@ -2763,11 +2597,111 @@ func (s *server) SetGroupName() http.HandlerFunc {
 
 		if err != nil {
 			s.Respond(w, r, http.StatusInternalServerError, err)
-		} else {
-			s.Respond(w, r, http.StatusOK, string(responseJson))
+			return
 		}
 
-		return
+		s.Respond(w, r, http.StatusOK, string(responseJson))
+	}
+}
+
+// Create a User
+func (s *server) CreateUser() http.HandlerFunc {
+	type createUserStruct struct {
+		Name  string
+		Token string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		txtid := r.Context().Value("userinfo").(Values).Get("Id")
+		userid, _ := strconv.Atoi(txtid)
+		name := ""
+
+		if clientPointer[userid] == nil {
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("No session"))
+			return
+		}
+
+		log.Info().Msg("Looking for user information in DB")
+		// Checks DB from matching user and store user values in context
+		rows, err := s.db.Query("SELECT name FROM users WHERE id=? LIMIT 1", txtid)
+
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error querying DB")
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("Error querying DB"))
+			return
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&name); err != nil {
+				log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error scanning DB")
+				s.Respond(w, r, http.StatusInternalServerError, errors.New("Error scanning DB"))
+				return
+			}
+		}
+
+		// if name not start with "super-" then return Unauthorized
+		if !strings.HasPrefix(name, "super-") {
+			s.Respond(w, r, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var t createUserStruct
+		err = decoder.Decode(&t)
+		if err != nil {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Could not decode Payload"))
+			return
+		}
+
+		if t.Name == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Name in Payload"))
+			return
+		}
+
+		if t.Token == "" {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("Missing Token in Payload"))
+			return
+		}
+
+		// Check if user already exists
+		rows, err = s.db.Query("SELECT id FROM users WHERE token=? LIMIT 1", t.Token)
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error querying DB")
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("Error querying DB"))
+			return
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			s.Respond(w, r, http.StatusBadRequest, errors.New("User already exists"))
+			return
+		}
+
+		// Create user
+		stmt, err := s.db.Prepare("INSERT INTO users(name, token) VALUES(?, ?)")
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error preparing DB statement")
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("Error preparing DB statement"))
+			return
+		}
+
+		res, err := stmt.Exec(t.Name, t.Token)
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error executing DB statement")
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("Error executing DB statement"))
+			return
+		}
+
+		_, err = res.LastInsertId()
+		if err != nil {
+			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("Error getting last insert id")
+			s.Respond(w, r, http.StatusInternalServerError, errors.New("Error getting last insert id"))
+			return
+		}
+
+		// return response
+		s.Respond(w, r, http.StatusOK, "User created successfully")
 	}
 }
 
