@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"go.mau.fi/whatsmeow/store/sqlstore"
-	waLog "go.mau.fi/whatsmeow/util/log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"go.mau.fi/whatsmeow/store/sqlstore"
+	waLog "go.mau.fi/whatsmeow/util/log"
 
 	"github.com/gorilla/mux"
 	"github.com/patrickmn/go-cache"
@@ -45,7 +46,11 @@ func init() {
 	flag.Parse()
 
 	if *logType == "json" {
-		log = zerolog.New(os.Stdout).With().Timestamp().Str("role", filepath.Base(os.Args[0])).Logger()
+		log = zerolog.New(os.Stdout).
+			With().
+			Timestamp().
+			Str("role", filepath.Base(os.Args[0])).
+			Logger()
 	} else {
 		output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		log = zerolog.New(output).With().Timestamp().Str("role", filepath.Base(os.Args[0])).Logger()
@@ -84,7 +89,11 @@ func main() {
 
 	if *waDebug != "" {
 		dbLog := waLog.Stdout("Database", *waDebug, true)
-		container, err = sqlstore.New("sqlite", "file:"+exPath+"/dbdata/main.db?_foreign_keys=on&_busy_timeout=3000", dbLog)
+		container, err = sqlstore.New(
+			"sqlite",
+			"file:"+exPath+"/dbdata/main.db?_foreign_keys=on&_busy_timeout=3000",
+			dbLog,
+		)
 	} else {
 		container, err = sqlstore.New("sqlite", "file:"+exPath+"/dbdata/main.db?_foreign_keys=on&_busy_timeout=3000", nil)
 	}
@@ -111,7 +120,8 @@ func main() {
 
 	go func() {
 		if *sslcert != "" {
-			if err := srv.ListenAndServeTLS(*sslcert, *sslprivkey); err != nil && err != http.ErrServerClosed {
+			if err := srv.ListenAndServeTLS(*sslcert, *sslprivkey); err != nil &&
+				err != http.ErrServerClosed {
 				//log.Fatalf("listen: %s\n", err)
 				log.Fatal().Err(err).Msg("Startup failed")
 			}

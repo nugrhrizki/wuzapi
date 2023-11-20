@@ -29,12 +29,12 @@ curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data 
 Response:
 
 ```json
-{ 
-  "code": 200, 
-  "data": { 
-    "webhook": "https://example.net/webhook" 
-  }, 
-  "success": true 
+{
+  "code": 200,
+  "data": {
+    "webhook": "https://example.net/webhook"
+  },
+  "success": true
 }
 ```
 
@@ -53,13 +53,13 @@ curl -s -X GET -H 'Token: 1234ABCD' http://localhost:8080/webhook
 ```
 Response:
 ```json
-{ 
-  "code": 200, 
-  "data": { 
-    "subscribe": [ "Message" ], 
-    "webhook": "https://example.net/webhook" 
-  }, 
-  "success": true 
+{
+  "code": 200,
+  "data": {
+    "subscribe": [ "Message" ],
+    "webhook": "https://example.net/webhook"
+  },
+  "success": true
 }
 ```
 
@@ -69,11 +69,11 @@ Response:
 
 The following _session_ endpoints are used to start a session to Whatsapp servers in order to send and receive messages
 
-## Connect  
+## Connect
 
-Connects to Whatsapp servers. If is there no existing session it will initiate a QR scan that can be retrieved via the [/session/qr](#user-content-gets-qr-code) endpoint. 
-You can subscribe to different types of messages so they are POSTED to your configured webhook. 
-Available message types to subscribe to are: 
+Connects to Whatsapp servers. If is there no existing session it will initiate a QR scan that can be retrieved via the [/session/qr](#user-content-gets-qr-code) endpoint.
+You can subscribe to different types of messages so they are POSTED to your configured webhook.
+Available message types to subscribe to are:
 
 * Message
 * ReadReceipt
@@ -87,7 +87,7 @@ Endpoint: _/session/connect_
 Method: **POST**
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"Subscribe":["Message"],"Immediate":false}' http://localhost:8080/session/connect 
+curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"Subscribe":["Message"],"Immediate":false}' http://localhost:8080/session/connect
 ```
 
 Response:
@@ -118,10 +118,10 @@ Method: **POST**
 
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' http://localhost:8080/session/disconnect 
+curl -s -X POST -H 'Token: 1234ABCD' http://localhost:8080/session/disconnect
 ```
 
-Response: 
+Response:
 
 ```json
 {
@@ -144,7 +144,7 @@ Endpoint: _/session/logout_
 Method: **POST**
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' http://localhost:8080/session/logout 
+curl -s -X POST -H 'Token: 1234ABCD' http://localhost:8080/session/logout
 ```
 
 Response:
@@ -173,7 +173,7 @@ Endpoint: _/session/status_
 Method: **GET**
 
 ```
-curl -s -H 'Token: 1234ABCD' http://localhost:8080/session/status 
+curl -s -H 'Token: 1234ABCD' http://localhost:8080/session/status
 ```
 
 Response:
@@ -192,7 +192,7 @@ Response:
 
 ---
 
-## Gets QR code  
+## Gets QR code
 
 Retrieves QR code, session must be connected to Whatsapp servers and logged in must be false in order for the QR code to be generated. The generated code
 will be returned encoded in base64 embedded format.
@@ -206,12 +206,12 @@ curl -s -H 'Token: 1234ABCD' http://localhost:8080/session/qr
 ```
 Response:
 ```json
-{ 
-  "code": 200, 
-  "data": { 
-    "QRCode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAAEw0lEQVR42uyZ..." 
-  }, 
-  "success": true 
+{
+  "code": 200,
+  "data": {
+    "QRCode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAABlBMVEX///8AAABVwtN+AAAEw0lEQVR42uyZ..."
+  },
+  "success": true
 }
 ```
 
@@ -230,7 +230,7 @@ Endpoint: _/user/info_
 Method: **POST**
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"Phone":["5491155554445","5491155554444"]}' http://localhost:8080/user/info 
+curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"Phone":["5491155554445","5491155554444"]}' http://localhost:8080/user/info
 ```
 
 Response:
@@ -383,7 +383,7 @@ same for all message types.
 
 ## Send Text Message
 
-Sends a text message or reply. For replies, ContextInfo data should be completed with the StanzaID (ID of the message we are replying to), and Participant (user JID we are replying to). If ID is 
+Sends a text message or reply. For replies, ContextInfo data should be completed with the StanzaID (ID of the message we are replying to), and Participant (user JID we are replying to). If ID is
 ommited, a random message ID will be generated.
 
 Endpoint: _/chat/send/text_
@@ -447,7 +447,7 @@ curl -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"
 
 ## Send Image Message
 
-Sends an Image message. Image must be in png or jpeg and base64 encoded in embedded format. You can optionally specify a text Caption 
+Sends an Image message. Image must be in png or jpeg and base64 encoded in embedded format. You can optionally specify a text Caption
 
 Endpoint: _/chat/send/image_
 
@@ -553,7 +553,7 @@ curl -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"
 
 ## Mark message(s) as read
 
-Indicates that one or more messages were read. Id is an array of messages Ids. 
+Indicates that one or more messages were read. Id is an array of messages Ids.
 Chat must always be set to the chat ID (user ID in DMs and group ID in group chats).
 Sender must be set in group chats and must be the user ID who sent the message.
 
@@ -637,7 +637,7 @@ method: **GET**
 
 
 ```
-curl -s -X GET -H 'Token: 1234ABCD' http://localhost:8080/group/list 
+curl -s -X GET -H 'Token: 1234ABCD' http://localhost:8080/group/list
 ````
 
 Response:
@@ -699,10 +699,10 @@ method: **GET**
 
 
 ```
-curl -s -X GET -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"GroupJID":"120362023605733675@g.us"}' http://localhost:8080/group/invitelink 
+curl -s -X GET -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"GroupJID":"120362023605733675@g.us"}' http://localhost:8080/group/invitelink
 ```
 
-Response: 
+Response:
 
 ```json
 {
@@ -729,7 +729,7 @@ method: **GET**
 curl -s -X GET -H 'Token: 1234ABCD' -H 'Content-Type: application/json' --data '{"GroupJID":"120362023605733675@g.us"}' http://localhost:8080/group/info
 ```
 
-Response: 
+Response:
 
 ```json
 {
@@ -785,7 +785,7 @@ method: **POST**
 
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' -d '{"GroupJID":"120362023605733675@g.us","Image":"data:image/jpeg;base64,AABB00DD-"}' http://localhost:8080/group/photo 
+curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' -d '{"GroupJID":"120362023605733675@g.us","Image":"data:image/jpeg;base64,AABB00DD-"}' http://localhost:8080/group/photo
 ```
 
 Response:
@@ -815,7 +815,7 @@ method: **POST**
 
 
 ```
-curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' -d '{"GroupJID":"120362023605733675@g.us","Name":"New Group Name"}' http://localhost:8080/group/name 
+curl -s -X POST -H 'Token: 1234ABCD' -H 'Content-Type: application/json' -d '{"GroupJID":"120362023605733675@g.us","Name":"New Group Name"}' http://localhost:8080/group/name
 ```
 
 Response:
@@ -829,4 +829,3 @@ Response:
   "success": true
 }
 ```
-

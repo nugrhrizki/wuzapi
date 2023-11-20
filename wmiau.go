@@ -147,7 +147,10 @@ func parseJID(arg string) (types.JID, bool) {
 
 func (s *server) startClient(userID int, textjid string, token string, subscriptions []string) {
 
-	log.Info().Str("userid", strconv.Itoa(userID)).Str("jid", textjid).Msg("Starting websocket connection to Whatsapp")
+	log.Info().
+		Str("userid", strconv.Itoa(userID)).
+		Str("jid", textjid).
+		Msg("Starting websocket connection to Whatsapp")
 
 	var deviceStore *store.Device
 	var err error
@@ -214,7 +217,8 @@ func (s *server) startClient(userID int, textjid string, token string, subscript
 				panic(err)
 			}
 			for evt := range qrChan {
-				if evt.Event == "code" {
+				switch evt.Event {
+				case "code":
 					// Display QR code in terminal (useful for testing/developing)
 					if *logType != "json" {
 						qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
@@ -228,7 +232,7 @@ func (s *server) startClient(userID int, textjid string, token string, subscript
 					if err != nil {
 						log.Error().Err(err).Msg(sqlStmt)
 					}
-				} else if evt.Event == "timeout" {
+				case "timeout":
 					// Clear QR code from DB on timeout
 					sqlStmt := `UPDATE users SET qrcode=? WHERE id=?`
 					_, err := s.db.Exec(sqlStmt, "", userID)
@@ -238,7 +242,7 @@ func (s *server) startClient(userID int, textjid string, token string, subscript
 					log.Warn().Msg("QR timeout killing channel")
 					delete(clientPointer, userID)
 					killchannel[userID] <- true
-				} else if evt.Event == "success" {
+				case "success":
 					log.Info().Msg("QR pairing ok!")
 					// Clear QR code after pairing
 					sqlStmt := `UPDATE users SET qrcode=? WHERE id=?`
@@ -246,7 +250,7 @@ func (s *server) startClient(userID int, textjid string, token string, subscript
 					if err != nil {
 						log.Error().Err(err).Msg(sqlStmt)
 					}
-				} else {
+				default:
 					log.Info().Str("event", evt.Event).Msg("Login event")
 				}
 			}
@@ -463,17 +467,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.Receipt:
 		postmap["type"] = "ReadReceipt"
 		dowebhook = 1
-		if evt.Type == events.ReceiptTypeRead || evt.Type == events.ReceiptTypeReadSelf {
+		switch evt.Type {
+		case events.ReceiptTypeRead, events.ReceiptTypeReadSelf:
 			log.Info().Strs("id", evt.MessageIDs).Str("source", evt.SourceString()).Str("timestamp", fmt.Sprintf("%d", evt.Timestamp)).Msg("Message was read")
 			if evt.Type == events.ReceiptTypeRead {
 				postmap["state"] = "Read"
 			} else {
 				postmap["state"] = "ReadSelf"
 			}
-		} else if evt.Type == events.ReceiptTypeDelivered {
+		case events.ReceiptTypeDelivered:
 			postmap["state"] = "Delivered"
 			log.Info().Str("id", evt.MessageIDs[0]).Str("source", evt.SourceString()).Str("timestamp", fmt.Sprintf("%d", evt.Timestamp)).Msg("Message delivered")
-		} else {
+		default:
 			// Discard webhooks for inactive or other delivery types
 			return
 		}
@@ -536,7 +541,7 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 	case *events.ChatPresence:
 		postmap["type"] = "ChatPresence"
 		dowebhook = 1
-		log.Info().Str("state", fmt.Sprintf("%s", evt.State)).Str("media", fmt.Sprintf("%s", evt.Media)).Str("chat", evt.MessageSource.Chat.String()).Str("sender", evt.MessageSource.Sender.String()).Msg("Chat Presence received")
+		log.Info().Str("state", string(evt.State)).Str("media", string(evt.Media)).Str("chat", evt.MessageSource.Chat.String()).Str("sender", evt.MessageSource.Sender.String()).Msg("Chat Presence received")
 	case *events.CallOffer:
 		log.Info().Str("event", fmt.Sprintf("%+v", evt)).Msg("Got call offer")
 	case *events.CallAccept:
@@ -556,13 +561,18 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		webhookurl := ""
 		myuserinfo, found := userinfocache.Get(mycli.token)
 		if !found {
-			log.Warn().Str("token", mycli.token).Msg("Could not call webhook as there is no user for this token")
+			log.Warn().
+				Str("token", mycli.token).
+				Msg("Could not call webhook as there is no user for this token")
 		} else {
 			webhookurl = myuserinfo.(Values).Get("Webhook")
 		}
 
-		if !Find(mycli.subscriptions, postmap["type"].(string)) && !Find(mycli.subscriptions, "All") {
-			log.Warn().Str("type", postmap["type"].(string)).Msg("Skipping webhook. Not subscribed for this type")
+		if !Find(mycli.subscriptions, postmap["type"].(string)) &&
+			!Find(mycli.subscriptions, "All") {
+			log.Warn().
+				Str("type", postmap["type"].(string)).
+				Msg("Skipping webhook. Not subscribed for this type")
 			return
 		}
 
